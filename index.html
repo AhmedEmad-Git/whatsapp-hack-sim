@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WhatsApp Sync Utility</title>
+    <style>
+        :root {
+            --wa-green: #00a884;
+            --wa-dark: #111b21;
+            --wa-light: #f7f7f7;
+            --wa-grey: #667781;
+            --android-btn: #01875f;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--wa-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .phone-frame {
+            width: 100%;
+            max-width: 400px;
+            height: 100%;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background-color: var(--wa-dark);
+            color: white;
+            padding: 5px 15px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Header */
+        .header {
+            background-color: var(--wa-green);
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            background-color: #ddd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #333;
+        }
+        .header-info h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .header-info p {
+            margin: 0;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* Main Content */
+        .content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .icon-large {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: var(--wa-green);
+        }
+
+        .title {
+            font-size: 18px;
+            color: var(--wa-dark);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .desc {
+            color: var(--wa-grey);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 30px;
+            max-width: 280px;
+        }
+
+        /* Android-style Button */
+        .btn-android {
+            background-color: var(--android-btn);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-android:active {
+            background-color: #00694c;
+            transform: scale(0.98);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 80%;
+            height: 6px;
+            background-color: #e0e0e0;
+            border-radius: 3px;
+            margin-top: 20px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: var(--wa-green);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Log Console */
+        .console {
+            width: 100%;
+            height: 150px;
+            background-color: var(--wa-dark);
+            color: #00ff88;
+            font-family: monospace;
+            font-size: 10px;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 8px;
+            overflow-y: auto;
+            text-align: left;
+            display: none;
+        }
+        .console-line {
+            margin-bottom: 2px;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background-color: var(--wa-dark);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            transform: translateY(100px);
+            transition: transform 0.3s ease;
+            z-index: 100;
+        }
+        .toast.show {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<div class="phone-frame">
+    <div class="status-bar">
+        <span id="clock">12:00</span>
+        <span>📶 5G 🔋 85%</span>
+    </div>
+    
+    <div class="header">
+        <div class="avatar">WA</div>
+        <div class="header-info">
+            <h2>WhatsApp Data Sync</h2>
+            <p>Secure Export Utility</p>
+        </div>
+    </div>
+
+    <div class="content" id="mainContent">
+        <div class="icon-large">📱</div>
+        <div class="title">Ready to Sync History</div>
+        <div class="desc">
+            This tool will securely extract your recent WhatsApp conversation history for backup purposes. 
+            <br><br>
+            <strong>Permission Required:</strong> Access to local message database.
+        </div>
+        
+        <button class="btn-android" id="grantBtn">Grant Permission & Start</button>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="console" id="console"></div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    // Update Clock
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('clock').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    const grantBtn = document.getElementById('grantBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressContainer = document.getElementById('progressContainer');
+    const consoleEl = document.getElementById('console');
+    const toast = document.getElementById('toast');
+
+    // Fake Log Messages
+    const logs = [
+        "[INFO] Connecting to WhatsApp daemon...",
+        "[INFO] Locating local SQLite database (msgstore.db)",
+        "[INFO] Handshake successful. Key exchange complete.",
+        "[INFO] Parsing chat indices...",
+        "[INFO] Extracting media metadata...",
+        "[INFO] Decrypting message payloads (AES-256)...",
+        "[WARN] High volume of data detected. Buffering...",
+        "[INFO] Compressing archive (.zip)...",
+        "[INFO] Uploading to host server...",
+        "[INFO] Transfer complete. Hash verified."
+    ];
+
+    let logIndex = 0;
+
+    function showToast(message) {
+        toast.innerText = message;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function addLog(message) {
+        const line = document.createElement('div');
+        line.className = 'console-line';
+        line.innerText = `> ${message}`;
+        consoleEl.appendChild(line);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    grantBtn.addEventListener('click', () => {
+        // Hide Button, Show Progress
+        grantBtn.style.display = 'none';
+        progressContainer.style.display = 'block';
+        consoleEl.style.display = 'block';
+        
+        showToast("Permission Granted: Storage Access");
+
+        let progress = 0;
+        
+        const interval = setInterval(() => {
+            // Simulate progress
+            progress += Math.random() * 15;
+            if (progress > 100) progress = 100;
+            progressBar.style.width = progress + '%';
+
+            // Add logs sequentially
+            if (logIndex < logs.length && progress > (logIndex * (100/logs.length))) {
+                addLog(logs[logIndex]);
+                logIndex++;
+            }
+
+            if (progress === 100) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    showToast("✅ Sync Complete! History exported.");
+                    
+                    // Optional: Trigger a fake download of a dummy file
+                    const blob = new Blob([JSON.stringify({
+                        status: "success",
+                        message: "Your WhatsApp history has been successfully synced to the host.",
+                        data: {
+                            last_message: "Hey, did you see that?",
+                            total_messages: 142,
+                            device_id: "Pixel_7_Pro",
+                            timestamp: new Date().toISOString()
+                        }
+                    })], { type: "application/json" });
+                    
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'whatsapp_sync_report.json';
+                    a.click();
+                    
+                    // Reset for demo purposes if needed
+                    setTimeout(() => {
+                        grantBtn.style.display = 'inline-block';
+                        progressContainer.style.display = 'none';
+                        consoleEl.style.display = 'none';
+                        progressBar.style.width = '0%';
+                        logIndex = 0;
+                        consoleEl.innerHTML = '';
+                    }, 5000);
+                }, 1000);
+            }
+        }, 400);
+    });
+</script>
+
+</body>
+</html>
